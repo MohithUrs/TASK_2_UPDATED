@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">     
+    <title>Login - SportsZone</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    </head>
+<body>
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1>SportsZone</h1>
+            <p id="headerText">Welcome Back!</p>
+        </div>
+        <div class="auth-body">
+            <div class="loading-spinner" id="loadingSpinner">
+                <div class="spinner-border" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2">Processing...</p>
+            </div>
+
+            <!-- Login Form -->
+            <form id="loginForm">
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control" id="loginUsername" required placeholder="Enter username">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-control" id="loginPassword" required placeholder="Enter password">
+                </div>
+                <button type="submit" class="btn btn-auth">Login</button>
+                <div class="toggle-form">
+                    Don't have an account? <a href="#" onclick="toggleForms(); return false;">Create Account</a>
+                </div>
+            </form>
+
+            <!-- Register Form -->
+            <form id="registerForm" style="display: none;">
+                <div class="mb-3">
+                    <label class="form-label">Username</label>
+                    <input type="text" class="form-control" id="registerUsername" required placeholder="Choose username (min 3 characters)">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Password</label>
+                    <input type="password" class="form-control" id="registerPassword" required placeholder="Choose password (min 3 characters)">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Select Role</label>
+                    <div class="role-selection">
+                        <div class="role-option" onclick="selectRole('admin')">
+                            <input type="radio" name="role" id="roleAdmin" value="admin" required>
+                            <label for="roleAdmin">Admin</label>
+                        </div>
+                        <div class="role-option" onclick="selectRole('user')">
+                            <input type="radio" name="role" id="roleUser" value="user" required>
+                            <label for="roleUser">User</label>
+                        </div>
+                    </div>
+                    <small class="text-muted">Admin can create/edit players. User can only view.</small>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Master Password</label>
+                    <input type="password" class="form-control" id="masterPassword" required placeholder="Enter master password">
+                    <small class="text-muted">Master password is required to create accounts (Hint: 123)</small>
+                </div>
+                <button type="submit" class="btn btn-auth">Create Account</button>
+                <div class="toggle-form">
+                    Already have an account? <a href="#" onclick="toggleForms(); return false;">Login</a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Toast container -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+        <div id="messageToast" class="toast align-items-center text-white border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body" id="toastMessage"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDvhOWfhg98Lh0HjBmMr-GGMtNt7M3l2iI",
+            authDomain: "sports-5192b.firebaseapp.com",
+            databaseURL: "https://sports-5192b-default-rtdb.firebaseio.com",
+            projectId: "sports-5192b",
+            storageBucket: "sports-5192b.firebasestorage.app",
+            messagingSenderId: "834964443975",
+            appId: "1:834964443975:web:877b1b64943e5bd7797262",
+            measurementId: "G-DDFZXL4J9V"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const database = firebase.database();
+        const usersRef = database.ref('users');
+
+        const MASTER_PASSWORD = "123";
+
+        // Function to show toast messages
+        function showToast(message, type = 'primary') {
+            const toast = document.getElementById('messageToast');
+            const toastMessage = document.getElementById('toastMessage');
+            
+            // Set the message
+            toastMessage.textContent = message;
+            
+            // Update toast background color based on type
+            toast.className = `toast align-items-center text-white bg-${type} border-0`;
+            
+            // Create and show the toast
+            const bsToast = new bootstrap.Toast(toast);
+            bsToast.show();
+        }
+
+        // Toggle between login and register forms
+        function toggleForms() {
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            const headerText = document.getElementById('headerText');
+
+            if (loginForm.style.display === 'none') {
+                loginForm.style.display = 'block';
+                registerForm.style.display = 'none';
+                headerText.textContent = 'Welcome Back!';
+                // Reset register form
+                registerForm.reset();
+                document.querySelectorAll('.role-option').forEach(opt => opt.classList.remove('selected'));
+            } else {
+                loginForm.style.display = 'none';
+                registerForm.style.display = 'block';
+                headerText.textContent = 'Create Account';
+                // Reset login form
+                loginForm.reset();
+            }
+        }
+
+        // Select role in register form
+        function selectRole(role) {
+            document.getElementById('roleAdmin').checked = (role === 'admin');
+            document.getElementById('roleUser').checked = (role === 'user');
+            
+            document.querySelectorAll('.role-option').forEach(opt => opt.classList.remove('selected'));
+            event.currentTarget.classList.add('selected');
+        }
+
+        // Show/hide loading spinner
+        function showLoading(show) {
+            const spinner = document.getElementById('loadingSpinner');
+            const loginForm = document.getElementById('loginForm');
+            const registerForm = document.getElementById('registerForm');
+            
+            if (show) {
+                spinner.style.display = 'block';
+                loginForm.style.display = 'none';
+                registerForm.style.display = 'none';
+            } else {
+                spinner.style.display = 'none';
+                if (loginForm.style.display === 'none' && registerForm.style.display === 'none') {
+                    loginForm.style.display = 'block';
+                }
+            }
+        }
+
+        // Login Form Handler
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('loginUsername').value.trim();
+            const password = document.getElementById('loginPassword').value;
+
+            // Validation
+            if (!username || !password) {
+                showToast('Please fill in all fields', 'danger');
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                // Query Firebase for user
+                const snapshot = await usersRef.child(username).once('value');
+                const userData = snapshot.val();
+
+                if (!userData) {
+                    showLoading(false);
+                    showToast('Username not found. Please check your username or create an account.', 'danger');
+                    return;
+                }
+
+                if (userData.password !== password) {
+                    showLoading(false);
+                    showToast('Incorrect password. Please try again.', 'danger');
+                    return;
+                }
+
+                // Store user session
+                sessionStorage.setItem('currentUser', username);
+                sessionStorage.setItem('userRole', userData.role);
+
+                showLoading(false);
+                showToast('Login successful! Redirecting to home page...', 'success');
+                
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1500);
+
+            } catch (error) {
+                showLoading(false);
+                console.error('Login error:', error);
+                showToast('An error occurred during login. Please try again.', 'danger');
+            }
+        });
+
+        // Register Form Handler
+        document.getElementById('registerForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const username = document.getElementById('registerUsername').value.trim();
+            const password = document.getElementById('registerPassword').value;
+            const role = document.querySelector('input[name="role"]:checked')?.value;
+            const masterPassword = document.getElementById('masterPassword').value;
+
+            // Validation
+            if (!username || !password || !role || !masterPassword) {
+                showToast('Please fill in all fields and select a role', 'warning');
+                return;
+            }
+
+            if (masterPassword !== MASTER_PASSWORD) {
+                showToast('Invalid master password. Contact administrator for the correct master password.', 'danger');
+                return;
+            }
+
+            if (username.length < 3) {
+                showToast('Username must be at least 3 characters long', 'warning');
+                return;
+            }
+
+            if (password.length < 3) {
+                showToast('Password must be at least 3 characters long', 'warning');
+                return;
+            }
+
+            // Check for spaces in username
+            if (username.includes(' ')) {
+                showToast('Username cannot contain spaces', 'warning');
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                // Check if username already exists
+                const snapshot = await usersRef.child(username).once('value');
+                if (snapshot.exists()) {
+                    showLoading(false);
+                    showToast('Username already exists. Please choose a different username.', 'danger');
+                    return;
+                }
+
+                // Create new user in Firebase
+                await usersRef.child(username).set({
+                    username: username,
+                    password: password,
+                    role: role,
+                    createdAt: new Date().toISOString()
+                });
+
+                showLoading(false);
+                showToast('Account created successfully! You can now login with your credentials.', 'success');
+                
+                setTimeout(() => {
+                    toggleForms();
+                    document.getElementById('registerForm').reset();
+                    document.querySelectorAll('.role-option').forEach(opt => opt.classList.remove('selected'));
+                    
+                    // Pre-fill login form
+                    document.getElementById('loginUsername').value = username;
+                }, 2000);
+
+            } catch (error) {
+                showLoading(false);
+                console.error('Registration error:', error);
+                showToast('An error occurred during registration. Please try again.', 'danger');
+            }
+        });
+
+        // Check if already logged in
+        window.addEventListener('load', () => {
+            const currentUser = sessionStorage.getItem('currentUser');
+            if (currentUser) {
+                showToast('You are already logged in. Redirecting...', 'info');
+                setTimeout(() => {
+                    window.location.href = 'index.html';
+                }, 1000);
+            }
+        });
+
+        // Log Firebase connection for debugging
+        database.ref('.info/connected').on('value', (snapshot) => {
+            if (snapshot.val() === true) {
+                console.log('Connected to Firebase Realtime Database');
+            } else {
+                console.log('Not connected to Firebase');
+            }
+        });
+    </script>
+</body>
+</html>
